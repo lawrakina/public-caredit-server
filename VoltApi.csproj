@@ -1,0 +1,72 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>e61d3e96-c647-4ff4-8ac5-ec90d0284869</UserSecretsId>
+    <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
+    <DockerfileContext>.</DockerfileContext>
+    <StartupObject>Program</StartupObject>
+    <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
+    <TargetFramework>net8.0</TargetFramework>
+    <AspNetCoreHostingModel>OutOfProcess</AspNetCoreHostingModel>
+    <RootNamespace>CarEdit_Server</RootNamespace>
+    <LangVersion>12</LangVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Diagnostics.EntityFrameworkCore" Version="7.0.17" />
+    <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="7.0.17" />
+    <PackageReference Include="Microsoft.AspNetCore.Identity.UI" Version="7.0.17" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="7.0.17" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="7.0.17">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="7.0.17" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="7.0.17" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="7.0.17">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="Telegram.Bot" Version="19.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="uploads\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="wwwroot\css\open-iconic\FONT-LICENSE" />
+    <None Include="wwwroot\css\open-iconic\font\fonts\open-iconic.eot" />
+    <None Include="wwwroot\css\open-iconic\font\fonts\open-iconic.otf" />
+    <None Include="wwwroot\css\open-iconic\font\fonts\open-iconic.svg" />
+    <None Include="wwwroot\css\open-iconic\font\fonts\open-iconic.ttf" />
+    <None Include="wwwroot\css\open-iconic\font\fonts\open-iconic.woff" />
+    <None Include="wwwroot\css\open-iconic\ICON-LICENSE" />
+    <None Include="wwwroot\css\open-iconic\README.md" />
+    <None Include="wwwroot\css\site.css" />
+    <None Include="wwwroot\favicon.png" />
+    <None Include="wwwroot\js\tariffs.js" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <_ContentIncludedByDefault Remove="AdminPanel\Pages\Error.cshtml" />
+    <_ContentIncludedByDefault Remove="AdminPanel\Pages\_Host.cshtml" />
+    <_ContentIncludedByDefault Remove="AdminPanel\Pages\EditTariffForUser.razor" />
+    <_ContentIncludedByDefault Remove="AdminPanel\Pages\FileManager.razor" />
+    <_ContentIncludedByDefault Remove="AdminPanel\Pages\Index.razor" />
+    <_ContentIncludedByDefault Remove="AdminPanel\Pages\KeySales.razor" />
+    <_ContentIncludedByDefault Remove="AdminPanel\Pages\ProductManagement.razor" />
+    <_ContentIncludedByDefault Remove="AdminPanel\Pages\Sales.razor" />
+    <_ContentIncludedByDefault Remove="AdminPanel\Pages\Tariffs.razor" />
+    <_ContentIncludedByDefault Remove="AdminPanel\Pages\UserStatistics.razor" />
+    <_ContentIncludedByDefault Remove="AdminPanel\Pages\Сategories.razor" />
+    <_ContentIncludedByDefault Remove="AdminPanel\Shared\LoginDisplay.razor" />
+    <_ContentIncludedByDefault Remove="AdminPanel\Shared\MainLayout.razor" />
+    <_ContentIncludedByDefault Remove="AdminPanel\Shared\NavMenu.razor" />
+    <_ContentIncludedByDefault Remove="AdminPanel\Shared\SurveyPrompt.razor" />
+  </ItemGroup>
+
+</Project>

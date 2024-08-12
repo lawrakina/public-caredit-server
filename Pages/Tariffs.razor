@@ -1,0 +1,130 @@
+﻿@page "/tariffs"
+@using CarEdit_Server.Models.Sales
+@using CarEdit_Server.Services
+
+@attribute [Authorize(Roles="admin")]
+
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject TariffsService TariffService
+@inject CategoryService CategoryService
+
+<h3>Тарифы</h3>
+
+<!-- Add Tariff Form -->
+<EditForm Model="_newTariff" OnValidSubmit="AddTariff">
+    <label for="name">Name:</label>
+    <InputText id="name" @bind-Value="_newTariff.Name" placeholder="Name" />
+
+    <label for="description">Description:</label>
+    <InputText id="description" @bind-Value="_newTariff.Description" placeholder="Description" />
+
+    <label for="period">Period (Days):</label>
+    <InputNumber id="period" @bind-Value="_newTariff.Days" placeholder="Period (Days)" />
+
+    <label for="maxFilesPerDay">Max Files Per Day:</label>
+    <InputNumber id="maxFilesPerDay" @bind-Value="_newTariff.MaxFilesPerDay" placeholder="Max Files Per Day" />
+
+    <label for="category">Category:</label>
+    <InputSelect id="category" @bind-Value="_newTariff.CategoryId" style="margin-bottom: 10px;">
+        @foreach (var category in _categories)
+        {
+            <option value="@category.Id">@category.Name</option>
+        }
+    </InputSelect>
+    
+    <button type="submit">Add Tariff</button>
+</EditForm>
+
+<!-- Tariffs List -->
+<table>
+    <tr>
+        <th>Name</th>
+        <th>Description</th>
+        <th>Period (Days)</th>
+        <th>Max Files Per Day</th>
+        <th>Category</th>
+        <th>Actions</th>
+    </tr>
+    @foreach (var tariff in _tariffs)
+    {
+        <tr>
+            <td>@tariff.Name</td>
+            <td>@tariff.Description</td>
+            <td>@tariff.Days</td>
+            <td>@tariff.MaxFilesPerDay</td>
+            <td>@tariff.Category?.Name</td>
+            <td>
+                <button @onclick="() => StartEditTariff(tariff)">Edit</button>
+                @* <button @onclick="() => DeleteTariff(tariff.Id)">Delete</button> *@
+            </td>
+        </tr>
+    }
+</table>
+
+<!-- Edit Tariff Form -->
+@if (_editTariff != null)
+{
+    <EditForm Model="_editTariff" OnValidSubmit="UpdateTariff">
+        <label for="name">Name:</label>
+        <InputText id="name" @bind-Value="_editTariff.Name" placeholder="Name" />
+        
+        <label for="description">Description:</label>
+        <InputText id="description" @bind-Value="_editTariff.Description" placeholder="Description" />
+        
+        <label for="period">Period (Days):</label>
+        <InputNumber id="period" @bind-Value="_editTariff.Days" placeholder="Period (Days)" />
+        
+        <label for="maxFilesPerDay">Max Files Per Day:</label>
+        <InputNumber id="maxFilesPerDay" @bind-Value="_editTariff.MaxFilesPerDay" placeholder="Max Files Per Day" />
+        
+        <label for="category">Category:</label>
+        <InputSelect id="category" @bind-Value="_editTariff.CategoryId" style="margin-bottom: 10px;">
+            <option value="-1">Pls select!</option>
+            @foreach (var category in _categories)
+            {
+                <option value="@category.Id">@category.Name</option>
+            }
+        </InputSelect>
+        
+        <button type="submit">Update Tariff</button>
+    </EditForm>
+}
+
+
+@code {
+    private Tariff _newTariff = new();
+    private Tariff? _editTariff;
+    private List<Tariff?> _tariffs = new();
+    private List<Category?> _categories = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _tariffs = await TariffService.GetAllTariffs();
+        _categories = await CategoryService.GetAllCategoriesAsync();
+    }
+
+    private async Task AddTariff()
+    {
+        await TariffService.CreateTariff(_newTariff);
+        _tariffs = await TariffService.GetAllTariffs();
+        _newTariff = new Tariff();
+    }
+
+    private void StartEditTariff(Tariff? tariff)
+    {
+        _editTariff = tariff;
+    }
+
+    private async Task UpdateTariff()
+    {
+        await TariffService.UpdateTariff(_editTariff);
+        _tariffs = await TariffService.GetAllTariffs();
+        _editTariff = null;
+    }
+
+    private async Task DeleteTariff(long id)
+    {
+        await TariffService.DeleteTariff(id);
+        _tariffs = await TariffService.GetAllTariffs();
+    }
+}

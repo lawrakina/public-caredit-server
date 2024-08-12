@@ -1,0 +1,52 @@
+﻿@page "/user-statistics"
+@using CarEdit_Server.Services
+
+@attribute [Authorize(Roles="admin")]
+
+@inject UserService StatisticsService
+@inject PublicInfoService PublicInfoService
+
+<h1>User Statistics</h1>
+
+@if (userStatistics == null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    @foreach (var userStat in userStatistics)
+    {
+        <h2>@userStat.UserName || @userStat.UserId</h2>
+        <table class="table">
+            <thead>
+            <tr>
+                <th>Date</th>
+                <th>Operation Type</th>
+                <th>Count</th>
+            </tr>
+            </thead>
+            <tbody>
+            @foreach (var statByDay in userStat.StatisticsByDay)
+            {
+                foreach (var operation in statByDay.Operations)
+                {
+                    <tr>
+                        <td>@statByDay.Date.ToShortDateString()</td>
+                        <td>@operation.OperationType</td>
+                        <td>@operation.Count</td>
+                    </tr>
+                }
+            }
+            </tbody>
+        </table>
+    }
+}
+
+@code {
+    private List<global::CarEdit_Server.Models.DTO.UserStatistics> userStatistics;
+
+    protected override async Task OnInitializedAsync()
+    {
+        userStatistics = await PublicInfoService.GetAllUserAnalytics();
+    }
+}

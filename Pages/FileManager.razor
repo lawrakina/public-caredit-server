@@ -1,0 +1,209 @@
+﻿@page "/files"
+@page "/files/{*Path}"
+@using global::AdminPanel.Data.Model
+@using Microsoft.JSInterop
+@using Microsoft.AspNetCore.Components.Forms
+@inject FileExplorrerService FileExplorrerService
+@inject IJSRuntime JSRuntime
+@inject NavigationManager NavigationManager
+
+@attribute [Authorize(Roles = "admin")]
+
+<PageTitle>Files</PageTitle>
+
+<h3>Files and Folders</h3>
+
+<div class="navigation-buttons">
+    <button class="btn btn-secondary" @onclick="NavigateBack">Назад</button>
+    <button class="btn btn-secondary" @onclick="NavigateRoot">В корневой каталог</button>
+</div>
+
+<div class="filter-container">
+    <div class="filter-item">
+        <label>From Date:</label>
+        <InputDate @bind-Value="FromDate" />
+    </div>
+    <div class="filter-item">
+        <label>To Date:</label>
+        <InputDate @bind-Value="ToDate" />
+    </div>
+    <div class="filter-item">
+        <button class="btn btn-primary" @onclick="FilterFiles">Filter</button>
+    </div>
+</div>
+
+<div class="sort-container">
+    <label>Sort By:</label>
+    <select @bind="SortBy">
+        <option value="Name">Name</option>
+        <option value="Date">Date</option>
+        <option value="FileCount">File Count</option>
+    </select>
+    <button class="btn btn-secondary" @onclick="ToggleSortDirection">
+        Sort: @(SortDescending ? "Descending" : "Ascending")
+    </button>
+</div>
+
+@if (sortedEntries == null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <p>Total files: @totalFiles</p>
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Last Modified</th>
+                <th>File Count</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var entry in sortedEntries)
+            {
+                <tr>
+                    <td>
+                        @if (entry.IsDirectory)
+                        {
+                            <a href="@($"/files/{entry.Path}")">@entry.Name</a>
+                        }
+                        else
+                        {
+                            @entry.Name
+                        }
+                    </td>
+                    <td>@(entry.IsDirectory ? "Folder" : "File")</td>
+                    <td>@entry.LastModified</td>
+                    <td>@(entry.IsDirectory ? entry.FileCount.ToString() : "-")</td>
+                    <td>
+                        @if (!entry.IsDirectory)
+                        {
+                            <button class="btn btn-primary" @onclick="() => DownloadFile(entry.Path)">Download</button>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    <div class="pagination">
+        <button class="btn btn-secondary" @onclick="PreviousPage" disabled="@(!HasPreviousPage)">Previous</button>
+        <button class="btn btn-secondary" @onclick="NextPage" disabled="@(!HasNextPage)">Next</button>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public string Path { get; set; } = string.Empty;
+
+    private List<FileItem> entries;
+    private List<FileItem> sortedEntries;
+    private DateTime? FromDate { get; set; }
+    private DateTime? ToDate { get; set; }
+    private string SortBy { get; set; } = "Name";
+    private bool SortDescending { get; set; } = false;
+    private int pageIndex = 0;
+    private int pageSize = 100;
+    private int totalFiles;
+    private int totalFolders;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        entries = await FileExplorrerService.GetFilesAndDirectoriesAsync(Path, FromDate, ToDate);
+        totalFiles = entries.Count(e => !e.IsDirectory);
+        totalFolders = entries.Count(e => e.IsDirectory);
+        SortEntries();
+    }
+
+    private void SortEntries()
+    {
+        if (entries == null) return;
+
+        var folders = entries.Where(e => e.IsDirectory);
+        var files = entries.Where(e => !e.IsDirectory);
+
+        folders = SortBy switch
+        {
+            "Name" => folders.OrderBy(e => e.Name),
+            "Date" => folders.OrderBy(e => e.LastModified),
+            "FileCount" => folders.OrderBy(e => e.FileCount),
+            _ => folders.OrderBy(e => e.Name)
+        };
+
+        files = SortBy switch
+        {
+            "Name" => files.OrderBy(e => e.Name),
+            "Date" => files.OrderBy(e => e.LastModified),
+            _ => files.OrderBy(e => e.Name)
+        };
+
+        if (SortDescending)
+        {
+            folders = folders.Reverse();
+            files = files.Reverse();
+        }
+
+        sortedEntries = folders.Concat(files.Skip(pageIndex * pageSize).Take(pageSize)).ToList();
+    }
+
+    private async Task FilterFiles()
+    {
+        entries = await FileExplorrerService.GetFilesAndDirectoriesAsync(Path, FromDate, ToDate);
+        totalFiles = entries.Count(e => !e.IsDirectory);
+        totalFolders = entries.Count(e => e.IsDirectory);
+        SortEntries();
+    }
+
+    private void ToggleSortDirection()
+    {
+        SortDescending = !SortDescending;
+        SortEntries();
+    }
+
+    private async Task DownloadFile(string path)
+    {
+        var fileBytes = await FileExplorrerService.GetFileAsync(path);
+        var fileName = System.IO.Path.GetFileName(path);
+        var base64 = Convert.ToBase64String(fileBytes);
+        var url = $"data:application/octet-stream;base64,{base64}";
+        await JSRuntime.InvokeVoidAsync("downloadFile", url, fileName);
+    }
+
+    private void NavigateBack()
+    {
+        if (!string.IsNullOrEmpty(Path))
+        {
+            var parentPath = System.IO.Path.GetDirectoryName(Path);
+            NavigationManager.NavigateTo($"/files/{parentPath}");
+        }
+    }
+
+    private void NavigateRoot()
+    {
+        NavigationManager.NavigateTo("/files");
+    }
+
+    private bool HasPreviousPage => pageIndex > 0;
+    private bool HasNextPage => (pageIndex + 1) * pageSize < totalFiles;
+
+    private async Task PreviousPage()
+    {
+        if (HasPreviousPage)
+        {
+            pageIndex--;
+            SortEntries();
+        }
+    }
+
+    private async Task NextPage()
+    {
+        if (HasNextPage)
+        {
+            pageIndex++;
+            SortEntries();
+        }
+    }
+}

@@ -1,0 +1,137 @@
+﻿@page "/key-sales"
+@inject KeySalesService KeySaleService
+@inject ProductService ProductService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IJSRuntime JSRuntime
+@using System.Security.Claims
+@using CarEdit_Server.Models.Payments
+@using CarEdit_Server.Models.Sales
+@using CarEdit_Server.Services
+@using global::AdminPanel.Data
+
+@attribute [Authorize(Roles = "admin, partner")]
+
+<h3>Key Sales Management</h3>
+
+@if (keySales == null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <h4>Create New Key</h4>
+    <EditForm Model="@newKeySale" OnValidSubmit="@HandleCreateKey" style="width: 100%;">
+        <InputSelect @bind-Value="@selectedTemplateId">
+            @foreach (var template in products)
+            {
+                <option value="@template.Id">@template.Title</option>
+            }
+        </InputSelect>
+        <InputNumber @bind-Value="@numberOfKeysToCreate" placeholder="Number of keys to create" />
+        <button type="submit">Create</button>
+    </EditForm>
+
+    <h4>Keys List</h4>
+    <table>
+        <thead>
+            <tr>
+                <th>Id</th>
+                <th>Price</th>
+                <th>Author</th>
+                <th>Product</th>
+                <th>Status</th>
+                <th>Action</th>
+                <th>Key</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var keySale in keySales)
+            {
+                <tr>
+                    <td class="no-select">@keySale.Id</td>
+                    <td class="no-select">@($"{keySale.Price} {keySale.Currency}")</td>
+                    <td class="no-select">@keySale.Lot?.Title</td>
+                    <td class="no-select">@keySale.Author</td>
+                    <td class="no-select">@(keySale.Activated ? "Activated" : "Live")</td>
+                    <td class="no-select">
+                        <button type="button" @onclick="() => CopyToClipboard(keySale.Key)">Copy key to Clipboard</button>
+                    </td>
+                    <td class="selectable-key" style="font-family: monospace;font-size: 12px;">@keySale.Key</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+<style>
+    .no-select {
+        user-select: none;
+        max-width: max-content;
+    }
+    .selectable-key {
+        user-select: text;
+    }
+</style>
+
+@code {
+    private static string _partnerRole = "partner";
+    private static string _adminRole = "admin";
+
+    private KeySale newKeySale = new KeySale();
+    private List<KeySale> keySales;
+    private List<Lot> products;
+    private int numberOfKeysToCreate;
+    private long selectedTemplateId;
+    private ClaimsPrincipal user;
+
+    private List<string> UserRoles { get; set; } = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        user = authState.User;
+
+        if (user.Identity.IsAuthenticated)
+        {
+            foreach (var role in user.Claims.Where(c => c.Type == "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"))
+            {
+                UserRoles.Add(role.Value);
+            }
+        }
+        else
+        {
+            Console.WriteLine("User is not authenticated.");
+        }
+
+        var allKeys = await KeySaleService.GetKeySalesAsync();
+        keySales = UserRoles.Contains(_partnerRole)
+            ? allKeys.Where(k => k.Author == user.Identity.Name).ToList()
+            : allKeys;
+        products = await ProductService.GetAllProductsAsync();
+    }
+
+    private async Task HandleCreateKey()
+    {
+        var lot = products.First(t => t.Id == selectedTemplateId);
+        for (int i = 0; i < numberOfKeysToCreate; i++)
+        {
+            var newKeySale = new KeySale
+            {
+                LotId = lot.Id,
+                Price = lot.Price / 100,
+                Currency = lot.Currency
+            };
+            var result = await KeySaleService.CreateKeySaleAsync(newKeySale);
+            if (result != null)
+            {
+                keySales.Add(result);
+            }
+        }
+    }
+
+    private void CopyToClipboard(string key)
+    {
+        var copyKeyScript = $"navigator.clipboard.writeText('{key}');";
+        JSRuntime.InvokeVoidAsync("eval", copyKeyScript);
+    }
+}

@@ -1,0 +1,171 @@
+﻿@page "/products"
+@using CarEdit_Server.Models.Payments
+@using CarEdit_Server.Models.Sales
+@using CarEdit_Server.Services
+@inject ProductService ProductService
+@inject TariffsService TariffService
+
+@attribute [Authorize(Roles = "admin, partner")]
+
+<h3>Products</h3>
+
+<!-- Add Product Form -->
+<EditForm Model="_newLot" OnValidSubmit="AddProduct">
+    @* <div style="max-width: 300px; display: flex; flex-direction: column;"> *@
+
+    <label for="title">Title</label>
+    <InputText id="title" @bind-Value="_newLot.Title" placeholder="Title" style="margin-bottom: 10px;"/>
+
+    <label for="description">Description</label>
+    <InputText id="description" @bind-Value="_newLot.Description" placeholder="Description" style="margin-bottom: 10px;"/>
+
+    <label for="price">Price with pennies</label>
+    <InputNumber id="price" @bind-Value="_newLot.Price" placeholder="Price" style="margin-bottom: 10px;"/>
+
+    <label for="currency">Currency</label>
+    <InputText id="currency" @bind-Value="_newLot.Currency" placeholder="Currency" style="margin-bottom: 10px;"/>
+
+    <label for="type">Type</label>
+    <InputSelect id="type" @bind-Value="_newLot.Type" style="margin-bottom: 10px;">
+        <option value="File">File</option>
+        <option value="Tariff">Tariff</option>
+        <option value="Plugin">Plugin</option>
+    </InputSelect>
+
+    <label for="tariff">Tariff</label>
+    <InputSelect id="tariff" @bind-Value="_newLot.TariffId" style="margin-bottom: 10px;">
+        @foreach (var tariff in _tariffs)
+        {
+            <option value="@tariff.Id">@tariff.Name</option>
+        }
+    </InputSelect>
+
+    <label for="files">Files</label>
+    <InputNumber id="files" @bind-Value="_newLot.Files" placeholder="Files" style="margin-bottom: 10px;"/>
+
+    <label for="time">Time</label>
+    <InputNumber id="time" @bind-Value="_newLot.Time" placeholder="Time" style="margin-bottom: 10px;"/>
+
+    <button type="submit" style="width: 100%; margin-bottom: 10px;">Add Product</button>
+    @* </div> *@
+</EditForm>
+
+<!-- Products List -->
+
+<table>
+    <thead>
+    <tr>
+        <th>Title</th>
+        <th>Description</th>
+        <th>Price</th>
+        <th>Currency</th>
+        <th>Type</th>
+        <th>Tariff</th>
+        <th>Files</th>
+        <th>Time</th>
+        <th>Actions</th>
+    </tr>
+    </thead>
+    <tbody>
+
+    @foreach (var product in _products)
+    {
+    <tr>
+        <td>@product.Title</td>
+        <td>@product.Description</td>
+        <td>@(product.Price / 100)</td>
+        <td>@product.Currency</td>
+        <td>@product.Type</td>
+        <td>@_tariffs.FirstOrDefault(x=>x.Id == product.TariffId)?.Name</td>
+        <!--Assuming  you want   to display  the Tariff ID here  -->
+        <td>@product.Files</td>
+        <td>@product.Time</td>
+        <td>
+            <button @onclick="() => StartEditProduct(product)">Edit</button>
+            <button @onclick="() => DeleteProduct(product.Id)">Delete</button>
+        </td>
+    </tr>
+    }
+    </tbody>
+</table>
+
+<!-- Edit Product Form -->
+@if (_editProduct != null)
+{
+    <EditForm Model="_editProduct" OnValidSubmit="UpdateProduct">
+        <!-- ... existing input fields ... -->
+        <!-- Tariffs dropdown for edit -->
+        <label for="title">Title</label>
+            <InputText id="title" @bind-Value="_editProduct.Title" placeholder="Title" style="margin-bottom: 10px;"/>
+        
+            <label for="description">Description</label>
+            <InputText id="description" @bind-Value="_editProduct.Description" placeholder="Description" style="margin-bottom: 10px;"/>
+        
+            <label for="price">Price</label>
+            <InputNumber id="price" @bind-Value="_editProduct.Price" placeholder="Price" style="margin-bottom: 10px;"/>
+        
+            <label for="currency">Currency</label>
+            <InputText id="currency" @bind-Value="_editProduct.Currency" placeholder="Currency" style="margin-bottom: 10px;"/>
+        
+            <label for="type">Type</label>
+            <InputSelect id="type" @bind-Value="_editProduct.Type" style="margin-bottom: 10px;">
+                <option value="File">File</option>
+                <option value="Tariff">Tariff</option>
+                <option value="Plugin">Plugin</option>
+            </InputSelect>
+        
+            <label for="tariff">Tariff</label>
+            <InputSelect id="tariff" @bind-Value="_editProduct.TariffId" style="margin-bottom: 10px;">
+                @foreach (var tariff in _tariffs)
+                {
+                    <option value="@tariff.Id">@tariff.Name</option>
+                }
+            </InputSelect>
+        
+            <label for="files">Files</label>
+            <InputNumber id="files" @bind-Value="_editProduct.Files" placeholder="Files" style="margin-bottom: 10px;"/>
+        
+            <label for="time">Time</label>
+            <InputNumber id="time" @bind-Value="_editProduct.Time" placeholder="Time" style="margin-bottom: 10px;"/>
+        <!-- ... existing input fields ... -->
+        <button type="submit">Update Product</button>
+    </EditForm>
+}
+
+@code {
+    private Lot _newLot = new();
+    private Lot? _editProduct;
+    private List<Lot> _products = new();
+    private List<Tariff> _tariffs = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _products = await ProductService.GetAllProductsAsync();
+        _tariffs = await TariffService.GetAllTariffs();
+    }
+
+    private async Task AddProduct()
+    {
+        await ProductService.AddProductAsync(_newLot);
+        _products = await ProductService.GetAllProductsAsync();
+        _newLot = new Lot();
+    }
+
+    private void StartEditProduct(Lot lot)
+    {
+        _editProduct = lot;
+    }
+
+    private async Task UpdateProduct()
+    {
+        await ProductService.UpdateProductAsync(_editProduct);
+        _products = await ProductService.GetAllProductsAsync();
+        _editProduct = null;
+    }
+
+    private async Task DeleteProduct(long id)
+    {
+        await ProductService.DeleteProductAsync(id);
+        _products = await ProductService.GetAllProductsAsync();
+    }
+}

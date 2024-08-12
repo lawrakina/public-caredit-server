@@ -1,0 +1,166 @@
+﻿<h3 xmlns="http://www.w3.org/1999/html">Страница редактора тарифов</h3>
+@page "/edit-tariff-for-user"
+@using System.Globalization
+@using CarEdit_Server.Models.DTO
+@using CarEdit_Server.Models.Payments
+@using CarEdit_Server.Services
+@using ProductService = CarEdit_Server.Services.ProductService
+
+@attribute [Authorize(Roles="admin")]
+
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject UserService UserService
+@inject ProductService ProductService
+@inject IJSRuntime JSRuntime;
+
+@if (!string.IsNullOrEmpty(notify))
+{
+    <div class="floating-block @notifyClass" style="position: fixed; top: 0%; right: 50%; transform: translateX(-50%); padding: 10px; margin-top: 60px">
+        <p>@notify</p>
+    </div>
+}
+<div class="content">
+    <!-- Left column (user list) -->
+    <div class="left-column">
+        <div class="search-container">
+            <input @bind="searchQuery" placeholder="Search by username, user ID, or Telegram ID..."/>
+            <button @onclick="SearchUsers">Search</button>
+        </div>
+        @if (filteredUsers != null)
+        {
+            <table>
+                <table>
+                    <thead>
+                    <tr>
+                        <th>User ID</th>
+                        <th>User Name</th>
+                        <th>Telegram ID</th>
+                        <th>User Tariff</th>
+                        <th>End Date</th>
+                        <th>Select User</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var user in filteredUsers)
+                    {
+                        <tr>
+                            <td>@user.UserId</td>
+                            <td>@user.UserName</td>
+                            <td>@user.TelegramId</td>
+                            <td>@user.Tariff.Name</td>
+                            <td>@user.TariffEndDate.ToString()</td>
+                            <td>
+                                <button @onclick="() => SelectUser(user)">Select User</button>
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </table>
+        }
+        else
+        {
+            <p>Loading...</p>
+        }
+    </div>
+
+    <!-- Right column (tariffs and selected user) -->
+    <div class="right-column-fixed">
+        <h3>Список тарифов</h3>
+        @if (products != null)
+        {
+            <ul>
+                @foreach (var lot in products)
+                {
+                    <li>
+                        <button @onclick="() => SelectTariff(lot)">@lot.Title - @(lot.Price/100)</button>
+                    </li>
+                }
+            </ul>
+        }
+        else
+        {
+            <p>Загрузка...</p>
+        }
+        <p>
+            <br>
+        </p>
+        @if (selectedUser != null)
+        {
+            <p id="selectedUser">Selected User: @selectedUser.UserName, @selectedUser.TelegramId<br/>Tariff: @selectedUser.Tariff.Name, @selectedUser.TariffEndDate</p>
+        }
+        @if (selectedLot != null)
+        {
+            <p id="selectedTariff">Selected Tariff: @selectedLot.Title - @(selectedLot.Price/100)</p>
+        }
+        @if (selectedUser != null && selectedLot != null)
+        {
+            <button @onclick="ApplyTariff">Применить Lot @selectedLot.Title пользователю @selectedUser.UserId</button>
+        }
+    </div>
+</div>
+
+@code {
+    List<UserFullInfo> users;
+    // List<Tariff?> tariffs;
+    List<Lot?> products;
+    List<UserFullInfo> filteredUsers;
+    UserFullInfo selectedUser;
+    // Tariff selectedTariff;
+    Lot selectedLot;
+    string notify;
+    string notifyClass;
+    string searchQuery = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        users = await UserService.GetUsersWithFullInfo();
+
+        // tariffs = await TariffService.GetAllTariffsAsync();
+        products = await ProductService.GetAllProductsAsync();
+
+        filteredUsers = users;
+    }
+
+    void SelectUser(UserFullInfo user)
+    {
+        notify = String.Empty;
+        selectedUser = user;
+        InvokeAsync(() => JSRuntime.InvokeVoidAsync("updateSelectedUser", selectedUser));
+    }
+
+    void SelectTariff(Lot lot)
+    {
+        notify = String.Empty;
+        selectedLot = lot;
+        InvokeAsync(() => JSRuntime.InvokeVoidAsync("updateSelectedLot", selectedLot));
+    }
+
+    async Task ApplyTariff()
+    {
+        notify = String.Empty;
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+
+        var result = await UserService.ApplyLot(selectedUser.UserId, selectedLot, authState.User.Identity);
+        notifyClass = result ? "notify-success" : "notify-error";
+        notify = result ? "Lot применен" : "Произошла ошибка при применении Lot`a";
+        StateHasChanged();
+    }
+
+    void SearchUsers()
+    {
+        if (string.IsNullOrWhiteSpace(searchQuery))
+        {
+            filteredUsers = users; // No search query, show all users
+        }
+        else
+        {
+            filteredUsers = users.Where(user =>
+                (user.UserName != null && user.UserName.Contains(searchQuery, StringComparison.OrdinalIgnoreCase)) ||
+                (user.UserId != null && user.UserId.ToString().Contains(searchQuery)) ||
+                (user.TelegramId != null && user.TelegramId.ToString().Contains(searchQuery, StringComparison.OrdinalIgnoreCase))
+                ).ToList();
+        }
+    }
+
+}

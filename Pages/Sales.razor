@@ -1,0 +1,70 @@
+﻿@page "/sales"
+@using Microsoft.AspNetCore.Identity
+@using CarEdit_Server.Models.Sales
+@using CarEdit_Server.Services
+@inject SaleStatisticService SalesService
+
+@attribute [Authorize(Roles="admin")]
+
+<h3>Sales Information</h3>
+
+@if (sales == null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <label for="adminFilter">Filter by administrator:</label>
+    <select id="adminFilter" @onchange="OnAdminFilterChanged">
+        <option value="">All</option>
+        @foreach (var admin in admins)
+        {
+            <option value="@admin.Id">@admin.UserName</option>
+        }
+    </select>
+
+    <table class="table">
+        <thead>
+        <tr>
+            <th>Date</th>
+            <th>Administrator</th>
+            <th>Tariff</th>
+            <th>Total Amount</th>
+        </tr>
+        </thead>
+        <tbody>
+        @foreach (var sale in sales)
+        {
+            <tr>
+                <td>@sale.Date.ToString("yyyy-MM-dd")</td>
+                <td>@sale.AdminName</td>
+                <td>@sale.TariffName</td>
+                <td>@sale.TariffPrice</td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<Sale> sales;
+    private List<IdentityUser> admins; // Replace with your actual administrator model
+
+    protected override async Task OnInitializedAsync()
+    {
+        admins = await SalesService.GetAdministratorsAsync();
+        sales = await SalesService.GetSalesAsync();
+    }
+
+    private async Task OnAdminFilterChanged(ChangeEventArgs e)
+    {
+        if (e.Value.ToString() != "")
+        {
+            sales = await SalesService.GetSalesByAdminAsync(e.Value.ToString());
+        }
+        else
+        {
+            sales = await SalesService.GetSalesAsync();
+        }
+    }
+}

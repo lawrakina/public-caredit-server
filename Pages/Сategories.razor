@@ -1,0 +1,470 @@
+﻿@page "/categories"
+@using CarEdit_Server.Models.Sales
+@using CarEdit_Server.Services
+@inject CategoryService CategoryService
+@inject PluginService PluginService
+@inject MenuService MenuItemService
+
+@attribute [Authorize(Roles = "admin, partner")]
+
+<h3>Categories</h3>
+
+<div style="display: flex; justify-content: space-between;">
+    <div>
+        <div class="border-block">
+            <!-- Add Category Form -->
+            <EditForm Model="_newCategory" OnValidSubmit="AddCategory">
+                <label for="name">Name</label>
+                <InputText id="name" @bind-Value="_newCategory.Name" placeholder="Name"/>
+
+                <button type="submit">Add Category</button>
+            </EditForm>
+        </div>
+        <!-- Categories List -->
+        <table class="mini">
+            <thead>
+            <tr>
+                <th>Id</th>
+                <th>Category Name</th>
+                <th>Plugins</th>
+                <th>Actions</th>
+            </tr>
+            </thead>
+            <tbody>
+            @foreach (var category in _categories)
+            {
+                <tr>
+                    <td class="no-select">@category.Id</td>
+                    <td class="no-select">@category.Name</td>
+                    <td class="selectable-key">
+                        @if (category.Plugins != null)
+                        {
+                            @foreach (var plugin in category.Plugins)
+                            {
+                                <p>@plugin.Value</p>
+                            }
+                        }
+                    </td>
+                    <td>
+                        <button @onclick="() => StartEditCategory(category)">Edit</button>
+                        <button @onclick="() => DeleteCategory(category.Id)">Delete</button>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+
+        <div class="border-block">
+            <!-- Edit Category Form -->
+            @if (_editCategory != null)
+            {
+                <EditForm Model="_editCategory" OnValidSubmit="UpdateCategory">
+                    <label for="name">Name</label>
+                    <InputText id="name" @bind-Value="_editCategory.Name" placeholder="Name"/>
+
+                    <button type="submit">Update Category</button>
+                </EditForm>
+            }
+        </div>
+    </div>
+
+    <div style="width: 40%;">
+        <h3>Plugins</h3>
+
+        <div class="border-block">
+            <!-- Add Plugin Form -->
+            <EditForm Model="_newPlugin" OnValidSubmit="AddPlugin">
+                <label for="name">Name</label>
+                <InputText id="name" @bind-Value="_newPlugin.Name" placeholder="Name"/>
+
+                <label for="value">Value</label>
+                <InputText id="value" @bind-Value="_newPlugin.Value" placeholder="Value"/>
+
+                <label for="categoryId">Category</label>
+                <InputSelect id="categoryId" @bind-Value="_newPlugin.CategoryId">
+                    @foreach (var category in _categories)
+                    {
+                        <option value="@category.Id">@category.Name</option>
+                    }
+                </InputSelect>
+
+                <button type="submit">Add Plugin</button>
+            </EditForm>
+        </div>
+        <!-- Plugins List -->
+        <table class="mini">
+            <thead>
+            <tr>
+                <th>Name</th>
+                <th>Value</th>
+                <th>In Category</th>
+                <th>Has Parent</th>
+                <th>Actions</th>
+            </tr>
+            </thead>
+            <tbody>
+            @foreach (var plugin in _plugins)
+            {
+                <tr>
+                    <td>@plugin.Name</td>
+                    <td>@plugin.Value</td>
+                    <td style="background-color: @(IsPluginInCategory(plugin.Id) ? "lightgreen" : "lightcoral")">
+                        @(IsPluginInCategory(plugin.Id) ? "+" : "-")
+                    </td>
+                    <td style="background-color: @(HasPluginParent(plugin.Id) ? "lightgreen" : "lightcoral")">
+                        @(HasPluginParent(plugin.Id) ? "+" : "-")
+                    </td>
+                    <td>
+                        <button @onclick="() => StartEditPlugin(plugin)">Edit</button>
+                        <button @onclick="() => DeletePlugin(plugin.Id)">Delete</button>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+        <div class="border-block">
+            <!-- Edit Plugin Form -->
+            @if (_editPlugin != null)
+            {
+                <EditForm Model="_editPlugin" OnValidSubmit="UpdatePlugin">
+                    <label for="name">Name</label>
+                    <InputText id="name" @bind-Value="_editPlugin.Name" placeholder="Name"/>
+
+                    <label for="value">Value</label>
+                    <InputText id="value" @bind-Value="_editPlugin.Value" placeholder="Value"/>
+
+                    <label for="categoryId">Category</label>
+                    <InputSelect id="categoryId" @bind-Value="_editPlugin.CategoryId">
+                        @foreach (var category in _categories)
+                        {
+                            <option value="@category.Id">@category.Name</option>
+                        }
+                    </InputSelect>
+
+                    <button type="submit">Update Plugin</button>
+                </EditForm>
+            }
+        </div>
+    </div>
+
+    <div style="width: 40%;">
+        <h3>Menu Items</h3>
+
+        <div class="border-block">
+            <!-- Add MenuItem Form -->
+            <EditForm Model="_newMenuItem" OnValidSubmit="AddMenuItem">
+                <label for="name">Name</label>
+                <InputText id="name" @bind-Value="_newMenuItem.Name" placeholder="Name"/>
+
+                <label for="value">Value</label>
+                <InputText id="value" @bind-Value="_newMenuItem.Value" placeholder="Value"/>
+
+                <label for="parentId">Parent Menu Item</label>
+                <InputSelect id="parentId" @bind-Value="_newMenuItem.ParentId" TValue="int?">
+                    <option value="">None</option>
+                    @foreach (var menuItem in _menuItems)
+                    {
+                        <option value="@menuItem.Id">@_menuItems.FirstOrDefault(x => x.Id == menuItem.ParentId)?.Value/@menuItem.Value</option>
+                    }
+                </InputSelect>
+
+                <label for="icon">Icon</label>
+                <InputText id="icon" @bind-Value="_newMenuItem.Icon" placeholder="Icon"/>
+
+                <label>
+                    <input type="checkbox" @bind-value="_newMenuItem.IsVisible"/> Visible
+                </label>
+
+                <button type="submit">Add Menu Item</button>
+            </EditForm>
+        </div>
+        <div class="border-block">
+            <label for="newParentId">New Parent Menu Item</label>
+            <InputSelect id="newParentId" @bind-Value="NewParentId" TValue="int?">
+                <option value="">None</option>
+                @foreach (var menuItem in _menuItems)
+                {
+                    <option value="@menuItem.Id">@_menuItems.FirstOrDefault(x => x.Id == menuItem.ParentId)?.Value/@menuItem.Value</option>
+                }
+            </InputSelect>
+            <button @onclick="AssignNewParent">Assign Selected Items to New Parent</button>
+        </div>
+        <!-- Menu Items List -->
+        <table class="mini">
+            <thead>
+            <tr>
+                <th>Select</th>
+                <th>Name</th>
+                <th>Value</th>
+                <th>Icon</th>
+                <th>Visible</th>
+                <th>Actions</th>
+            </tr>
+            </thead>
+            <tbody>
+            @foreach (var menuItem in _menuItems.Where(mi => mi.ParentId == null))
+            {
+                @RenderMenuItem(menuItem)
+            }
+            </tbody>
+        </table>
+
+
+        <div class="bottom-right-column-fixed">
+            <!-- Edit MenuItem Form -->
+            @if (_editMenuItem != null)
+            {
+                <EditForm Model="_editMenuItem" OnValidSubmit="UpdateMenuItem">
+                    <label for="name">Name</label>
+                    <InputText id="name" @bind-Value="_editMenuItem.Name" placeholder="Name"/>
+
+                    <label for="value">Value</label>
+                    <InputText id="value" @bind-Value="_editMenuItem.Value" placeholder="Value"/>
+
+                    <label for="parentId">Parent Menu Item</label>
+                    <InputSelect id="parentId" @bind-Value="_editMenuItem.ParentId" TValue="int?">
+                        <option value="">None</option>
+                        @foreach (var menuItem in _menuItems)
+                        {
+                            <option value="@menuItem.Id">
+                                /@_menuItems.FirstOrDefault(x => x.Id == menuItem.ParentId)?.Value
+                                /@menuItem.Value
+                            </option>
+                        }
+                    </InputSelect>
+
+                    <label for="icon">Icon</label>
+                    <InputText id="icon" @bind-Value="_editMenuItem.Icon" placeholder="Icon"/>
+
+                    <label>
+                        <input type="checkbox" @bind-value="_editMenuItem.IsVisible"/> Visible
+                    </label>
+
+                    <button type="submit">Update Menu Item</button>
+                </EditForm>
+            }
+        </div>
+    </div>
+</div>
+
+<style>
+    .no-select {
+        user-select: none;
+        max-width: max-content;
+    }
+    .selectable-key {
+        user-select: text;
+    }
+    .nested-menu-item {
+        margin-left: 20px;
+    }
+    .checkbox-large {
+        width: 25px;
+        height: 25px;
+    }
+</style>
+
+@code {
+    private Category _newCategory = new();
+    private Category? _editCategory;
+    private List<Category> _categories = new();
+
+    private Plugin _newPlugin = new();
+    private Plugin? _editPlugin;
+    private List<Plugin> _plugins = new();
+
+    private Plugin _newMenuItem = new();
+    private Plugin? _editMenuItem;
+    private List<Plugin> _menuItems = new();
+
+    private string _customJson = "";
+    private int _idForDelete = 0;
+    private int _indexForDelete;
+    private int? NewParentId;
+    private HashSet<int> SelectedMenuItems = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _categories = await CategoryService.GetAllCategoriesAsync();
+        _plugins = await PluginService.GetAllPluginsAsync();
+        _menuItems = (List<Plugin>)await MenuItemService.GetAllMenuItemsAsync();
+    }
+
+    private async Task AddCategory()
+    {
+        await CategoryService.CreateCategory(_newCategory);
+        _categories = await CategoryService.GetAllCategoriesAsync();
+        _newCategory = new Category();
+    }
+
+    private void StartEditCategory(Category category)
+    {
+        _editCategory = category;
+    }
+
+    private async Task UpdateCategory()
+    {
+        await CategoryService.UpdateCategory(_editCategory);
+        _categories = await CategoryService.GetAllCategoriesAsync();
+        _editCategory = null;
+    }
+
+    private async Task DeleteCategory(int id)
+    {
+        await CategoryService.DeleteCategory(id);
+        _categories = await CategoryService.GetAllCategoriesAsync();
+    }
+
+    private async Task AddPlugin()
+    {
+        await PluginService.CreatePlugin(_newPlugin);
+        _plugins = await PluginService.GetAllPluginsAsync();
+        _newPlugin = new Plugin();
+    }
+
+    private void StartEditPlugin(Plugin plugin)
+    {
+        _editPlugin = plugin;
+    }
+
+    private async Task UpdatePlugin()
+    {
+        await PluginService.UpdatePlugin(_editPlugin);
+        _plugins = await PluginService.GetAllPluginsAsync();
+        _editPlugin = null;
+    }
+
+    private async Task DeletePlugin(int id)
+    {
+        await PluginService.DeletePlugin(id);
+        _plugins = await PluginService.GetAllPluginsAsync();
+    }
+
+    private async Task AddMenuItem()
+    {
+        await MenuItemService.AddAsync(_newMenuItem);
+        _menuItems = (List<Plugin>)await MenuItemService.GetAllMenuItemsAsync();
+        _newMenuItem = new Plugin();
+    }
+
+    private void StartEditMenuItem(Plugin menuItem)
+    {
+        _editMenuItem = menuItem;
+    }
+
+    private async Task UpdateMenuItem()
+    {
+        await MenuItemService.UpdateMenuItemAsync(_editMenuItem);
+        _menuItems = (List<Plugin>)await MenuItemService.GetAllMenuItemsAsync();
+        _editMenuItem = null;
+    }
+
+    private async Task DeleteMenuItem(int id)
+    {
+        if (id != _idForDelete)
+        {
+            _indexForDelete = 0;
+        }
+        _indexForDelete++;
+        _idForDelete = id;
+        if (_indexForDelete > 2 && _idForDelete == id)
+        {
+            _indexForDelete = 0;
+            _idForDelete = 0;
+            await MenuItemService.DeleteMenuItemAsync(id);
+            _menuItems = (List<Plugin>)await MenuItemService.GetAllMenuItemsAsync();
+        }
+    }
+
+    private RenderFragment RenderMenuItem(Plugin menuItem) => builder =>
+    {
+        int seq = 0;
+        builder.OpenElement(seq++, "tr");
+        builder.OpenElement(seq++, "td");
+        builder.OpenElement(seq++, "input");
+        builder.AddAttribute(seq++, "type", "checkbox");
+        builder.AddAttribute(seq++, "class", "checkbox-large");
+        builder.AddAttribute(seq++, "checked", SelectedMenuItems.Contains(menuItem.Id));
+        builder.AddAttribute(seq++, "onclick", EventCallback.Factory.Create<MouseEventArgs>(this, e => ToggleSelection(menuItem.Id)));
+        builder.CloseElement();
+        builder.CloseElement();
+        builder.OpenElement(seq++, "td");
+        builder.AddContent(seq++, menuItem.Name);
+        builder.CloseElement();
+        builder.OpenElement(seq++, "td");
+        builder.AddContent(seq++, menuItem.Value);
+        builder.CloseElement();
+        builder.OpenElement(seq++, "td");
+        builder.AddContent(seq++, menuItem.Icon);
+        builder.CloseElement();
+        builder.OpenElement(seq++, "td");
+        builder.AddContent(seq++, menuItem.IsVisible);
+        builder.CloseElement();
+        builder.OpenElement(seq++, "td");
+        builder.OpenElement(seq++, "button");
+        builder.AddAttribute(seq++, "onclick", EventCallback.Factory.Create(this, () => StartEditMenuItem(menuItem)));
+        builder.AddContent(seq++, "Edit");
+        builder.CloseElement();
+        builder.OpenElement(seq++, "button");
+        builder.AddAttribute(seq++, "onclick", EventCallback.Factory.Create(this, () => DeleteMenuItem(menuItem.Id)));
+        builder.AddContent(seq++, "Delete");
+        builder.CloseElement();
+        builder.CloseElement();
+        builder.CloseElement();
+
+        if (menuItem.Children != null && menuItem.Children.Any())
+        {
+            foreach (var child in menuItem.Children)
+            {
+                builder.OpenElement(seq++, "tr");
+                builder.OpenElement(seq++, "td");
+                builder.AddAttribute(seq++, "colspan", 6);
+                builder.AddAttribute(seq++, "class", "nested-menu-item");
+                builder.AddContent(seq++, RenderMenuItem(child));
+                builder.CloseElement();
+                builder.CloseElement();
+            }
+        }
+    };
+
+    private void ToggleSelection(int id)
+    {
+        if (SelectedMenuItems.Contains(id))
+        {
+            SelectedMenuItems.Remove(id);
+        }
+        else
+        {
+            SelectedMenuItems.Add(id);
+        }
+    }
+
+    private async Task AssignNewParent()
+    {
+        if (NewParentId.HasValue)
+        {
+            foreach (var id in SelectedMenuItems)
+            {
+                var menuItem = _menuItems.FirstOrDefault(mi => mi.Id == id);
+                if (menuItem != null)
+                {
+                    menuItem.ParentId = NewParentId.Value;
+                    await MenuItemService.UpdateMenuItemAsync(menuItem);
+                }
+            }
+            _menuItems = (List<Plugin>)await MenuItemService.GetAllMenuItemsAsync();
+            SelectedMenuItems.Clear();
+        }
+    }
+
+    private bool IsPluginInCategory(int pluginId)
+    {
+        return _categories.Any(category => category.Plugins != null && category.Plugins.Any(plugin => plugin.Id == pluginId));
+    }
+
+    private bool HasPluginParent(int pluginId)
+    {
+        return _menuItems.Any(menuItem => menuItem.Id == pluginId && menuItem.ParentId.HasValue);
+    }
+
+}
